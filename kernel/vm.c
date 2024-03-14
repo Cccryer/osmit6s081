@@ -89,7 +89,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     panic("walk");
 
   for(int level = 2; level > 0; level--) {
-    pte_t *pte = &pagetable[PX(level, va)];
+    pte_t *pte = &pagetable[PX(level, va)]; //pagetable是一个指向4096字节空间的指针，512个pte，每个地址8字节（uint64），正好4096，偏移取到pte地址。
     if(*pte & PTE_V) {
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
@@ -436,4 +436,29 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+void
+vmsprint(pagetable_t pagetable, int pagedeep)
+{
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & ( PTE_R | PTE_W | PTE_X)) == 0)
+    {
+      for(int j = pagedeep; j; j--)
+        printf(".. ");
+      uint64 child = PTE2PA(pte);
+      printf("..%d: pte %p pa %p\n", i, pte, child);
+      vmsprint((pagetable_t)child, pagedeep+1);
+    }
+    else if(pte & PTE_V)
+      printf(".. .. ..%d: pte %p pa %p\n", i, pte, (uint64)PTE2PA(pte));
+  }
+}
+   
+void
+vmprint(pagetable_t pagetable)
+{
+  printf("page table %p\n", pagetable);
+  vmsprint(pagetable, 0);
 }

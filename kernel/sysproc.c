@@ -74,7 +74,23 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  uint64 va;
+  argaddr(0, &va); //取虚拟地址
+  int pagenum;
+  argint(1, &pagenum); //取要查的页表长度
+  uint64 abitsaddr;
+  argaddr(2, &abitsaddr); //取返回掩码地址
+  unsigned int abits = 0; //掩码位
+  for(int i = 0; i < pagenum; i++)
+  {
+    pte_t *pte = walk(myproc()->pagetable, va+PGSIZE*i, 0);//取最下级页表
+    if(*pte & PTE_A){ //验证acess位
+      *pte &= ~PTE_A;  //清楚acess位
+      abits |= (1<<i);  //记录
+    }
+  }
+  if(copyout(myproc()->pagetable,abitsaddr,(char*)&abits,sizeof(abits)))
+    return -1;
   return 0;
 }
 #endif
@@ -100,3 +116,4 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
