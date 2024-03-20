@@ -326,6 +326,14 @@ sfence_vma()
   // the zero, zero means flush all TLB entries.
   asm volatile("sfence.vma zero, zero");
 }
+static inline uint64
+r_fp()
+{
+  uint64 x;
+  asm volatile("mv %0, s0" : "=r" (x) );
+  return x;
+}
+
 
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
@@ -336,7 +344,7 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PGSHIFT 12  // bits of offset within a page
 
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
-#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
+#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))//页面大小对应地址页面偏移位，~4095全0再&舍去页面偏移位，得到页面位，判断是不是同一页
 
 #define PTE_V (1L << 0) // valid
 #define PTE_R (1L << 1)

@@ -66,7 +66,20 @@ usertrap(void)
 
     syscall();
   } else if((which_dev = devintr()) != 0){
-    // ok
+      if(which_dev == 2 && p->flag == 1)
+      {
+        p->ticks_num++;
+        if(p->ticks == p->ticks_num)
+        {
+          p->ticks_num = 0;
+          if(p->inhandler == 0)
+          {
+            memmove(p->save_trapframe, p->trapframe, sizeof(struct trapframe));
+            p->trapframe->epc = (uint64)p->handler;
+            p->inhandler = 1;
+          }
+        }
+      }
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -126,7 +139,7 @@ usertrapret(void)
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
-  ((void (*)(uint64))trampoline_userret)(satp);
+  ((void (*)(uint64))trampoline_userret)(satp);//将 trampoline_userret 强制转换为接受一个 uint64 类型参数并返回 void 的函数指针类型(跳到了trampoline的后半段userret)
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,

@@ -133,3 +133,53 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+void backtrace(void)
+{
+  printf("backtrace:\n");
+  uint64 *p = (uint64*)r_fp();
+  uint64 fp = PGROUNDDOWN((uint64)p);
+  while(PGROUNDDOWN((uint64)p) == fp)//判断页面位是否相同
+  {
+    printf("%p\n", *(p-1));
+    p = (uint64 *)*(p-2);
+  }
+}
+
+/*
+Stack
+                   .
+                   .
+      +->          .
+      |   +-----------------+   |
+      |   | return address  |   |
+      |   |   previous fp ------+
+      |   | saved registers |
+      |   | local variables |
+      |   |       ...       | <-+
+      |   +-----------------+   |
+      |   | return address  |   |
+      +------ previous fp   |   |
+          | saved registers |   |
+          | local variables |   |
+      +-> |       ...       |   |
+      |   +-----------------+   |
+      |   | return address  |   |
+      |   |   previous fp ------+
+      |   | saved registers |
+      |   | local variables |
+      |   |       ...       | <-+
+      |   +-----------------+   |
+      |   | return address  |   |
+      +------ previous fp   |   |
+          | saved registers |   |
+          | local variables |   |
+  $fp --> |       ...       |   |
+          +-----------------+   |
+          | return address  |   |
+          |   previous fp ------+
+          | saved registers |
+  $sp --> | local variables |
+          +-----------------+
+
+*/
