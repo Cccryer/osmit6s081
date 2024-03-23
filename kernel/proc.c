@@ -44,6 +44,7 @@ proc_mapstacks(pagetable_t kpgtbl)
 }
 
 // initialize the proc table.
+// 系统开始时就初始化了一个进程表，分配好了栈
 void
 procinit(void)
 {
@@ -51,7 +52,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
-  for(p = proc; p < &proc[NPROC]; p++) {
+  for(p = proc; p < &proc[NPROC]; p++) {//注意是所有
       initlock(&p->lock, "proc");
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
@@ -124,7 +125,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-
+  
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -140,6 +141,12 @@ found:
     return 0;
   }
 
+  if((p->save_trapframe = (struct trapframe *)kalloc()) == 0)
+  {
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -160,6 +167,8 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+  if(p->save_trapframe)
+    kfree((void *)p->save_trapframe);
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -169,6 +178,13 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+
+  
+  p->handler = 0;
+  p->ticks = 0;
+  p->ticks_num = 0;
+  p->flag = 0;
+  p->inhandler = 0;
 }
 
 // Create a user page table for a given process, with no user memory,

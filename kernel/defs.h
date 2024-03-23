@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct ref_pgnum;
 
 // bio.c
 void            binit(void);
@@ -60,6 +61,10 @@ void            ramdiskintr(void);
 void            ramdiskrw(struct buf*);
 
 // kalloc.c
+int             kaddrefcnt(void *);
+int             cowhandler(pagetable_t pagetable, uint64 va);
+int             iscowpage(pagetable_t pagetable, uint64 va);
+int             cowalloc(pagetable_t, uint64);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);

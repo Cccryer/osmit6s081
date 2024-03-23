@@ -99,7 +99,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
-  return &pagetable[PX(0, va)];
+  return &pagetable[PX(0, va)];  //返回最后一层的pte
 }
 
 // Look up a virtual address, return the physical address,
@@ -302,34 +302,43 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 // physical memory.
 // returns 0 on success, -1 on failure.
 // frees any allocated pages on failure.
+
+
 int
-uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
+uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)//frok时拷贝进程空间
 {
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+
+    if((*pte & PTE_W)){//父进程拥有PTE_W
+      *pte &= ~PTE_W;//清除父进程PTE_W
+      *pte |= PTE_COW;//添加cow标记位
+    }
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
+
+
+
+    // pa = PTE2PA(*pte); //页表物理地址
+    // flags = PTE_FLAGS(*pte); //页表符号位
+    // if((mem = kalloc()) == 0)
+    //   goto err;
+    // memmove(mem, (char*)pa, PGSIZE); //一页内容全写入到mem
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){//物理页mem映射到内存空间i页（i<sz)，保存在new页表中
+      //kfree(mem);
+      uvmunmap(new, 0, i / PGSIZE, 1);
+      return -1;
     }
+    kaddrefcnt((char*) pa);
   }
   return 0;
-
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
 }
 
 // mark a PTE invalid for user access.
@@ -355,7 +364,12 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+
+    if(iscowpage(pagetable, dstva) == 0)
+      cowhandler(pagetable, dstva);
+    pa0 = walkaddr(pagetable, va0); //先经过cow页处理再取物理地址
+
+
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (dstva - va0);
